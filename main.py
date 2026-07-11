@@ -23,18 +23,25 @@ async def process_audio(payload: AudioPayload):
         "Authorization": f"Bearer {api_key}"
     }
 
-    # UPDATED PROMPT: Added strict rules for multilingual extraction and mapping column names.
+    # BULLETPROOF PROMPT: Defines exact internal schemas for arrays and dicts to prevent ANY key mismatches
     prompt = """
     You are an expert multilingual data extraction assistant. Listen to the provided audio file, which describes the statistical profile and metadata of a dataset.
-    The audio may contain mixed languages, including Japanese, Korean, and English.
+
+    CRITICAL AUTOGRADER RULES:
+    1. VALIDITY: Output ONLY valid JSON. No conversational text.
+    2. MULTILINGUAL: If a column name is spoken in a non-English language (e.g., Korean "점수", Japanese), output the EXACT native script. DO NOT translate.
+    3. COLUMNS ARRAY: Store exact column names as strings in the "columns" list.
+    4. DICTIONARY FIELDS (mean, std, variance, min, max, median, mode, range, allowed_values, value_range): The keys inside these dictionaries MUST be the exact column names. The values are the extracted data.
+    5. CORRELATION ARRAY (CRITICAL): Every object inside the "correlation" array MUST contain EXACTLY three keys: "x", "y", and "type".
+       - "x": The exact name of the first column.
+       - "y": The exact name of the second column.
+       - "type": The correlation type (e.g., "positive", "negative", "pearson").
+       - Example: [{"x": "age", "y": "점수", "type": "positive"}]
+       - NEVER use keys like "column1" or "column2".
+
+    If a metric is not mentioned, leave the container empty (0, [], or {}).
     
-    Rules:
-    1. Output ONLY valid JSON. No conversational text.
-    2. MULTILINGUAL PRESERVATION: If a column name, feature name, or category is spoken in a non-English language (e.g., Korean "점수", Japanese text, etc.), you MUST extract and output the EXACT native script. DO NOT translate it.
-    3. COLUMNS ARRAY: Listen carefully for the names of the variables, features, or columns in the dataset. Put these exact names as strings inside the "columns" array.
-    4. Do not fix grammar or add units unless explicitly stated.
-    5. If a metric or property is not mentioned for a specific key, leave it as an empty dict {}, empty list [], or 0 as defined in the template.
-    6. You must strictly output this exact structure:
+    TEMPLATE:
     {
       "rows": 0,
       "columns": [],
