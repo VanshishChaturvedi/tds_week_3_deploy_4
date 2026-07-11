@@ -6,19 +6,16 @@ import json
 
 app = FastAPI()
 
-# Pydantic model for the incoming request payload based on the image
 class AudioPayload(BaseModel):
     audio_id: str
     audio_base64: str
 
-# CHANGED: Route is now strictly the root ("/") to match the autograder's POST request
 @app.post("/")
 async def process_audio(payload: AudioPayload):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable not set.")
 
-    # Strict adherence to AI Pipe proxy architecture
     url = "https://aipipe.org/geminiv1beta/models/gemini-2.5-flash:generateContent"
     
     headers = {
@@ -26,16 +23,18 @@ async def process_audio(payload: AudioPayload):
         "Authorization": f"Bearer {api_key}"
     }
 
-    # Hyper-strict prompt to force exact structure and prevent hallucination/extra text
+    # UPDATED PROMPT: Added strict rules for multilingual extraction and mapping column names.
     prompt = """
-    You are an expert data extraction assistant. Listen to the provided audio file, which describes the statistical profile and metadata of a dataset.
-    Extract the exact values mentioned and map them to the corresponding keys in the JSON structure below.
+    You are an expert multilingual data extraction assistant. Listen to the provided audio file, which describes the statistical profile and metadata of a dataset.
+    The audio may contain mixed languages, including Japanese, Korean, and English.
     
     Rules:
     1. Output ONLY valid JSON. No conversational text.
-    2. Do not fix grammar or add units unless explicitly stated.
-    3. If a metric or property is not mentioned for a specific key, leave it as an empty dict {}, empty list [], or 0 as defined in the template.
-    4. You must strictly output this exact structure:
+    2. MULTILINGUAL PRESERVATION: If a column name, feature name, or category is spoken in a non-English language (e.g., Korean "점수", Japanese text, etc.), you MUST extract and output the EXACT native script. DO NOT translate it.
+    3. COLUMNS ARRAY: Listen carefully for the names of the variables, features, or columns in the dataset. Put these exact names as strings inside the "columns" array.
+    4. Do not fix grammar or add units unless explicitly stated.
+    5. If a metric or property is not mentioned for a specific key, leave it as an empty dict {}, empty list [], or 0 as defined in the template.
+    6. You must strictly output this exact structure:
     {
       "rows": 0,
       "columns": [],
@@ -83,9 +82,7 @@ async def process_audio(payload: AudioPayload):
         # Autograder Survival: Strip Markdown backticks completely
         cleaned_text = raw_text.replace("```json", "").replace("```", "").strip()
         
-        # Parse the JSON string into a Python dictionary
         parsed_json = json.loads(cleaned_text)
-        
         return parsed_json
 
     except requests.exceptions.RequestException as e:
