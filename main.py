@@ -23,20 +23,19 @@ async def process_audio(payload: AudioPayload):
         "Authorization": f"Bearer {api_key}"
     }
 
-    # BULLETPROOF PROMPT: Defines exact internal schemas for arrays and dicts to prevent ANY key mismatches
+    # HYPER-STRICT PROMPT: Forces the LLM to recognize short foreign words (like 값) as columns.
     prompt = """
     You are an expert multilingual data extraction assistant. Listen to the provided audio file, which describes the statistical profile and metadata of a dataset.
 
     CRITICAL AUTOGRADER RULES:
     1. VALIDITY: Output ONLY valid JSON. No conversational text.
-    2. MULTILINGUAL: If a column name is spoken in a non-English language (e.g., Korean "점수", Japanese), output the EXACT native script. DO NOT translate.
-    3. COLUMNS ARRAY: Store exact column names as strings in the "columns" list.
-    4. DICTIONARY FIELDS (mean, std, variance, min, max, median, mode, range, allowed_values, value_range): The keys inside these dictionaries MUST be the exact column names. The values are the extracted data.
+    2. MULTILINGUAL TRANSCRIBING (CRITICAL): The audio contains non-English column names, especially short Korean words (e.g., "점수", "값") and Japanese. You MUST transcribe the EXACT native script (Korean Hangul, Japanese Kanji/Kana). DO NOT translate.
+    3. FORCE COLUMNS EXTRACTION: You MUST identify the column/variable name. If a statistical metric (mean, min, max, etc.) is given for something, that "something" IS the column name. For example, if the audio says the mean of "값" is 10, you MUST add "값" to the "columns" array. NEVER leave "columns" empty if metrics are discussed.
+    4. DICTIONARY FIELDS (mean, std, variance, min, max, median, mode, range, allowed_values, value_range): The keys inside these dictionaries MUST be the exact column names (e.g., "값"). The values are the extracted data.
     5. CORRELATION ARRAY (CRITICAL): Every object inside the "correlation" array MUST contain EXACTLY three keys: "x", "y", and "type".
        - "x": The exact name of the first column.
        - "y": The exact name of the second column.
        - "type": The correlation type (e.g., "positive", "negative", "pearson").
-       - Example: [{"x": "age", "y": "점수", "type": "positive"}]
        - NEVER use keys like "column1" or "column2".
 
     If a metric is not mentioned, leave the container empty (0, [], or {}).
